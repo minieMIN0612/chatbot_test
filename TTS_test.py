@@ -1,11 +1,12 @@
 import streamlit as st
 import openai
 import streamlit.components.v1 as components
+import re
 
 # 페이지 설정
 st.set_page_config(page_title="치치와 감정 알아보기", page_icon="🐱")
 st.title("🐱 치치에게 한 번 물어보라옹!")
-st.write("무슨 일이 있었냐옹? 어떤 마음인지 함께 알아보자옹!")
+st.write("무슨 일이 있었냥? 어떤 마음인지 함께 알아보자옹!")
 
 # ✅ secrets에서 API 키 가져오기
 openai.api_key = st.secrets["OPENAI_API_KEY"]
@@ -27,6 +28,10 @@ if "final_emotion" not in st.session_state:
     st.session_state.final_emotion = ""
 if "response" not in st.session_state:
     st.session_state.response = ""
+
+# 이모지 제거 함수 (TTS용)
+def remove_emojis(text):
+    return re.sub(r'[^\w\s.,!?가-힣ㄱ-ㅎㅏ-ㅣ]', '', text)
 
 # GPT 응답 생성 함수
 def get_emotion_candidates(who, when, what):
@@ -63,13 +68,13 @@ def get_final_response(emotion, who, when, what):
     return response.choices[0].message.content.strip()
 
 def speak_text(text):
-    escaped = text.replace("\n", " ").replace("\"", "'")
+    escaped = remove_emojis(text.replace("\n", " ").replace("\"", "'").strip())
     js_code = f"""
         <script>
         var utterance = new SpeechSynthesisUtterance("{escaped}");
         utterance.lang = "ko-KR";
-        utterance.pitch = 1.8;  // 높고 귀여운 느낌
-        utterance.rate = 1.1;   // 살짝 빠르게
+        utterance.pitch = 1.8;
+        utterance.rate = 1.1;
         var voices = window.speechSynthesis.getVoices();
         utterance.voice = voices.find(v => v.name.includes("Google") || v.name.includes("Korean")) || null;
         window.speechSynthesis.speak(utterance);
@@ -85,7 +90,7 @@ if st.session_state.stage == "ask_who":
         st.rerun()
 
 elif st.session_state.stage == "ask_when":
-    st.session_state.when = st.text_input("🐱 그건 언제 있었던 일이냐옹?")
+    st.session_state.when = st.text_input("🐱 그건 언제 있었던 일이냥?")
     if st.button("다음") and st.session_state.when.strip():
         st.session_state.stage = "ask_what"
         st.rerun()
@@ -93,7 +98,7 @@ elif st.session_state.stage == "ask_when":
 elif st.session_state.stage == "ask_what":
     st.session_state.what = st.text_area("🐱 어떤 일이 있었는지 자세히 말해주라옹")
     if st.button("다음") and st.session_state.what.strip():
-        with st.spinner("치치가 감정을 추칠 중이다옹... 🐾"):
+        with st.spinner("치치가 감정을 추측 중이다옹... 🐾"):
             result = get_emotion_candidates(st.session_state.who, st.session_state.when, st.session_state.what)
             st.session_state.emotion_choices = result.split("\n")
             st.session_state.previous_choices = st.session_state.emotion_choices.copy()
@@ -103,13 +108,13 @@ elif st.session_state.stage == "ask_what":
 elif st.session_state.stage == "choose_emotion":
     st.write("🐱 치치의 생각은 이렇다옹:")
     emotion_only = [e for e in st.session_state.emotion_choices if ":" in e and not any(x in e for x in ["생각", "이럴", "이런 경우"])]
-    chosen = st.radio("이 중 어느 감정이 제일 비슷하냐옹?", options=emotion_only + ["이 감정들이 아니야"])
+    chosen = st.radio("이 중 어떤 감정이 제일 비슷하냥?", options=emotion_only + ["이 감정들이 아니야"])
 
     col1, col2 = st.columns([1, 1])
     with col1:
         if st.button("선택"):
             if chosen == "이 감정들이 아니야":
-                with st.spinner("다른 감정을 찾아보는 중이다옹..."):
+                with st.spinner("다른 감정을 찾아보는 중이냥..."):
                     new_choices = get_alternative_emotions(st.session_state.who, st.session_state.when, st.session_state.what)
                     st.session_state.previous_choices = st.session_state.emotion_choices.copy()
                     st.session_state.emotion_choices = new_choices.split("\n")
@@ -127,15 +132,15 @@ elif st.session_state.stage == "choose_emotion":
 
 elif st.session_state.stage == "show_response":
     st.write("🐱 치치의 대답:")
-    response = get_final_response(st.session_state.final_emotion, st.session_state.who, st.session_state.when, st.session_state.what)
-    st.session_state.response = response
-    st.success(response)
+    if not st.session_state.response:
+        st.session_state.response = get_final_response(st.session_state.final_emotion, st.session_state.who, st.session_state.when, st.session_state.what)
 
-    # TTS 버튼: ㅏ백의 꼐잡은 가드우는 버튼
+    st.success(st.session_state.response)
+
     speak_col = st.columns([6, 1])[1]
     with speak_col:
-        if st.button("\u25b6\ufe0f", help="버튼을 누르면 치치가 말을 해요!"):
-            speak_text(response)
+        if st.button("▶️", help="버튼을 누르면 치치의 대답을 읽어줘!"):
+            speak_text(st.session_state.response)
 
     if st.button("↩️ 다시 시작하기"):
         for key in ["stage", "who", "when", "what", "emotion_choices", "previous_choices", "final_emotion", "response"]:
