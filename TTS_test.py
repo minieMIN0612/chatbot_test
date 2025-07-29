@@ -5,7 +5,7 @@ import streamlit.components.v1 as components
 # 페이지 설정
 st.set_page_config(page_title="치치와 감정 알아보기", page_icon="🐱")
 st.title("🐱 치치에게 한 번 물어보라옹!")
-st.write("무시는 일이 있었냐옹? 어떻냐 마음인지 함계 알아보자옹!")
+st.write("무슨 일이 있었냐옹? 어떤 마음인지 함께 알아보자옹!")
 
 # ✅ secrets에서 API 키 가져오기
 openai.api_key = st.secrets["OPENAI_API_KEY"]
@@ -79,19 +79,19 @@ def speak_text(text):
 
 # 단계별 인터페이스
 if st.session_state.stage == "ask_who":
-    st.session_state.who = st.text_input("🐱 누구와 있어왔던 일이냐옹?")
+    st.session_state.who = st.text_input("🐱 누구와 있었던 일이냐옹?")
     if st.button("다음") and st.session_state.who.strip():
         st.session_state.stage = "ask_when"
         st.rerun()
 
 elif st.session_state.stage == "ask_when":
-    st.session_state.when = st.text_input("🐱 그건 어째 있었던 일이냐옹?")
+    st.session_state.when = st.text_input("🐱 그건 언제 있었던 일이냐옹?")
     if st.button("다음") and st.session_state.when.strip():
         st.session_state.stage = "ask_what"
         st.rerun()
 
 elif st.session_state.stage == "ask_what":
-    st.session_state.what = st.text_area("🐱 어느 일이 있었는지 자세히 말해주라옹")
+    st.session_state.what = st.text_area("🐱 어떤 일이 있었는지 자세히 말해주라옹")
     if st.button("다음") and st.session_state.what.strip():
         with st.spinner("치치가 감정을 추칠 중이다옹... 🐾"):
             result = get_emotion_candidates(st.session_state.who, st.session_state.when, st.session_state.what)
@@ -101,7 +101,7 @@ elif st.session_state.stage == "ask_what":
         st.rerun()
 
 elif st.session_state.stage == "choose_emotion":
-    st.write("🐱 치치의 생각은 이런 것이다옹:")
+    st.write("🐱 치치의 생각은 이렇다옹:")
     emotion_only = [e for e in st.session_state.emotion_choices if ":" in e and not any(x in e for x in ["생각", "이럴", "이런 경우"])]
     chosen = st.radio("이 중 어느 감정이 제일 비슷하냐옹?", options=emotion_only + ["이 감정들이 아니야"])
 
@@ -109,7 +109,7 @@ elif st.session_state.stage == "choose_emotion":
     with col1:
         if st.button("선택"):
             if chosen == "이 감정들이 아니야":
-                with st.spinner("다른 감정을 찾아보는 중이냐..."):
+                with st.spinner("다른 감정을 찾아보는 중이다옹..."):
                     new_choices = get_alternative_emotions(st.session_state.who, st.session_state.when, st.session_state.what)
                     st.session_state.previous_choices = st.session_state.emotion_choices.copy()
                     st.session_state.emotion_choices = new_choices.split("\n")
@@ -134,7 +134,7 @@ elif st.session_state.stage == "show_response":
     # TTS 버튼: ㅏ백의 꼐잡은 가드우는 버튼
     speak_col = st.columns([6, 1])[1]
     with speak_col:
-        if st.button("\u25b6\ufe0f", help="버튼을 누르면 치치의 대답을 읽어줘!"):
+        if st.button("\u25b6\ufe0f", help="버튼을 누르면 치치가 말을 해요!"):
             speak_text(response)
 
     if st.button("↩️ 다시 시작하기"):
