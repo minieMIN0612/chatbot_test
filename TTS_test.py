@@ -2,6 +2,7 @@ import streamlit as st
 import openai
 import streamlit.components.v1 as components
 import re
+import requests
 
 # 페이지 설정
 st.set_page_config(page_title="치치와 감정 알아보기", page_icon="🐱")
@@ -32,6 +33,29 @@ if "response" not in st.session_state:
 # 이모지 제거 함수 (TTS용)
 def remove_emojis(text):
     return re.sub(r'[^\w\s.,!?가-힣ㄱ-ㅎㅏ-ㅣ]', '', text)
+
+# CLOVA TTS 함수
+def clova_tts(text, speaker="taeo"):
+    CLOVA_API_URL = "https://naveropenapi.apigw.ntruss.com/tts-premium/v1/tts"
+    headers = {
+        "X-NCP-APIGW-API-KEY-ID": st.secrets["NCLOUD_CLIENT_ID"],
+        "X-NCP-APIGW-API-KEY": st.secrets["NCLOUD_CLIENT_SECRET"]
+    }
+    cleaned_text = remove_emojis(text)
+    data = {
+        "speaker": speaker,
+        "volume": "0",
+        "speed": "0",
+        "pitch": "0",
+        "format": "mp3",
+        "text": cleaned_text
+    }
+    response = requests.post(CLOVA_API_URL, headers=headers, data=data)
+    if response.status_code == 200:
+        return response.content
+    else:
+        st.error(f"❌ 음성 합성 실패: {response.status_code} - {response.text}")
+        return None
 
 # GPT 응답 생성 함수
 def get_emotion_candidates(who, when, what):
@@ -66,21 +90,6 @@ def get_final_response(emotion, who, when, what):
         ]
     )
     return response.choices[0].message.content.strip()
-
-def speak_text(text):
-    escaped = remove_emojis(text.replace("\n", " ").replace("\"", "'").strip())
-    js_code = f"""
-        <script>
-        var utterance = new SpeechSynthesisUtterance("{escaped}");
-        utterance.lang = "ko-KR";
-        utterance.pitch = 1.8;
-        utterance.rate = 1.1;
-        var voices = window.speechSynthesis.getVoices();
-        utterance.voice = voices.find(v => v.name.includes("Google") || v.name.includes("Korean")) || null;
-        window.speechSynthesis.speak(utterance);
-        </script>
-    """
-    components.html(js_code)
 
 # 단계별 인터페이스
 if st.session_state.stage == "ask_who":
@@ -140,7 +149,9 @@ elif st.session_state.stage == "show_response":
     speak_col = st.columns([6, 1])[1]
     with speak_col:
         if st.button("▶️", help="버튼을 누르면 치치의 대답을 읽어줘!"):
-            speak_text(st.session_state.response)
+            audio = clova_tts(st.session_state.response)
+            if audio:
+                st.audio(audio, format="audio/mp3")
 
     if st.button("↩️ 다시 시작하기"):
         for key in ["stage", "who", "when", "what", "emotion_choices", "previous_choices", "final_emotion", "response"]:
